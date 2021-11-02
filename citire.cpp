@@ -7,14 +7,21 @@ struct cards {
     int32_t value;
     char type;
 };
+
+void skip2chars() {
+    fin.get();
+    fin.get();
+}
+
 void solve(cards initial) {
     cards current[9], min;
     min.value = 10;
-    char semicolon;
     bool ok = false, case1 = false, case2 = false;
     for (int32_t index = 0; index < 5; ++index) {
-        fin >> current[index].value >> semicolon;
-        fin >> current[index].type;
+        fin >> current[index].value;
+        skip2chars();
+        current[index].type = (char)fin.get();
+        skip2chars();
         if (current[index].type == initial.type) {
             ok = true;
             if (current[index].value > initial.value) {
@@ -47,13 +54,16 @@ void solve(cards initial) {
 }
 int main() {
     cards initial;
-    char semicolon;
     if (!fin.good()) {
         std::cerr << "Fisierul nu a fost deschis cu success.";
         return 1;
     }
+
     for (int32_t index = 0; index < 1; ++index) {
-        fin >> initial.value >> semicolon >> initial.type;
+        fin >> initial.value;
+        skip2chars();
+        initial.type = fin.get();
+        skip2chars();
         fout << index + 1 << ". ";
         solve(initial);
     }
