@@ -5,7 +5,7 @@
 #include <queue>
 #include <vector>
 
-const int MAX_DIM = 500;
+const int MAX_DIM = 501;
 
 // a very large number to signify "unreachable"; careful at overflows! In comps, prefer using just a large number such as
 // 1.000.000 (signed int goes up to ~2B)
@@ -27,11 +27,11 @@ bool visited[MAX_DIM][MAX_DIM];
 int iw = 0, jw = 0, ie = 0, je = 0;// start and end point coordinates
 
 // A node in our implicit graph, defined by the labyrinth
-struct Node {
+struct Vertex {
   int i, j, dist;
-  Node(int i, int j, int dist) : i(i), j(j), dist(dist) {}
+  Vertex(int i, int j, int dist) : i(i), j(j), dist(dist) {}
 };
-std::vector<Node> portals;
+std::vector<Vertex> portals;
 
 void read() {
   std::ifstream fin("walle.in");
@@ -61,13 +61,13 @@ void dijkstra(int i, int j, IntMat &dist) {
   std::fill(&dist[0][0], &dist[n][m], INF);
   std::memset(visited, false, n * MAX_DIM * sizeof(bool));
 
-  auto cmp = [](Node a, Node b) { return a.dist > b.dist; };
-  std::priority_queue<Node, std::vector<Node>, decltype(cmp)> q(cmp);
+  auto cmp = [](Vertex a, Vertex b) { return a.dist > b.dist; };
+  std::priority_queue<Vertex, std::vector<Vertex>, decltype(cmp)> q(cmp);
 
   dist[i][j] = 0;
   q.push({i, j, 0});
   while (!q.empty()) {
-    Node t = q.top();
+    Vertex t = q.top();
     q.pop();
     if (visited[t.i][t.j]) continue;
     visited[t.i][t.j] = 1;
@@ -84,28 +84,33 @@ void dijkstra(int i, int j, IntMat &dist) {
   }
 }
 
+std::pair<int, int> get_furthest_portals() {
+  int max= 0, max2= 0;
+  for (auto &[i, j, _] : portals) {
+    int d_exit = dist_from_exit[i][j];
+    if (d_exit >= max) {
+      max2 = max;
+      max = d_exit;
+    } else if (d_exit > max2) {
+      max2 = d_exit;
+    }
+  }
+  return {max, max2};
+}
+
 int help_walle_out() {
   std::vector<int> left_max(portals.size());
   std::vector<int> right_max(portals.size());
 
   // compute the cost for each portal (it's the maximum cost of all the other portals)
-  // we use the simple trick of computing the max from left and right and then the distance
-  // for portal i is max(left[i-1], right[i+1])
-  // alternatively, we can compute the top 2 maximums
-  left_max[0] = dist_from_exit[portals[0].i][portals[0].j];
-  right_max[portals.size() - 1] = dist_from_exit[portals.back().i][portals.back().j];
-  for (int i = 1; i < portals.size(); i++)
-    left_max[i] = std::max(left_max[i - 1], dist_from_exit[portals[i].i][portals[i].j]);
-  for (int i = (int) portals.size() - 2; i >= 0; i--)
-    right_max[i] = std::max(right_max[i + 1], dist_from_exit[portals[i].i][portals[i].j]);
+  auto [max, max2] = get_furthest_portals();
 
-  for (int p = 0; p < portals.size(); p++) {
-    int dist_via_portal = p == 0 ? right_max[1] : (p + 1 == portals.size() ? left_max[p - 1] : std::max(left_max[p - 1], right_max[p + 1]));
+  for (const auto &[i, j, _] : portals) {
+
+    int dist_via_portal = dist_from_exit[i][j]==max ? max2: max;
     if (dist_via_portal == INF) {
       continue;
     }
-
-    auto [i, j, _] = portals[p];
 
     bool has_free_cell = false;
     bool has_time_delay = false;
@@ -124,21 +129,16 @@ int help_walle_out() {
       dist_from_exit[i][j] = std::min(dist_from_exit[i][j], T + 2 + dist_via_portal);
   }
 
-  left_max[0] = dist_from_exit[portals[0].i][portals[0].j];
-  right_max[portals.size() - 1] = dist_from_exit[portals.back().i][portals.back().j];
-  for (int i = 1; i < portals.size(); i++)
-    left_max[i] = std::max(left_max[i - 1], dist_from_exit[portals[i].i][portals[i].j]);
-  for (int i = (int) portals.size() - 2; i >= 0; i--)
-    right_max[i] = std::max(right_max[i + 1], dist_from_exit[portals[i].i][portals[i].j]);
+  auto [nmax, nmax2] = get_furthest_portals();
 
   // shortest path NOT using portals
   int result = dist_from_start[ie][je];
   // let's check if using a portal is faster
-  for (int i = 0; i < portals.size(); i++) {
-    int dist_via_portal = i == 0 ? right_max[1] : (i + 1 == portals.size() ? left_max[i - 1] : std::max(left_max[i - 1], right_max[i + 1]));
+  for (const auto &[i, j, _] : portals) {
+    int dist_via_portal = dist_from_exit[i][j]==nmax ? nmax2: nmax;
 
-    if (dist_from_start[portals[i].i][portals[i].j] != INF && dist_via_portal != INF) {
-      result = std::min(result, dist_from_start[portals[i].i][portals[i].j] + dist_via_portal);
+    if (dist_from_start[i][j] != INF && dist_via_portal != INF) {
+      result = std::min(result, dist_from_start[i][j] + dist_via_portal);
     }
   }
 
